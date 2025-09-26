@@ -20,8 +20,7 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": false,
-    "jsx": "react-jsx",
-    "composite": true
+    "jsx": "react-jsx"
   },
   "include": [
     "src"
@@ -30,5 +29,6 @@
     "node_modules",
     "dist",
     "__tests__"
-  ]
+  ],
+  "extends": "expo/tsconfig.base"
 }
