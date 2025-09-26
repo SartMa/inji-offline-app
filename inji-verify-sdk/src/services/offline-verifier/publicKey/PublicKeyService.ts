@@ -1,6 +1,6 @@
 import { PublicKeyGetterFactory } from './PublicKeyGetterFactory';
 import { CachedPublicKey, getKeyById, putPublicKeys } from '../cache/utils/CacheHelper';
-import { bytesToHex, spkiToRawEd25519, ed25519RawToMultibase, parsePemToDer, base64UrlDecode } from './Utils';
+import { bytesToHex, spkiToRawEd25519, ed25519RawToMultibase, parsePemToDer, base64UrlDecode, hexToBytes } from './Utils';
 
 export class PublicKeyService {
   /**
@@ -94,6 +94,30 @@ export class PublicKeyService {
         return null;
       }
 
+      if (!record.public_key_multibase && (record.key_type ?? '').includes('Ed25519')) {
+        const derivedMultibase = this.deriveEd25519Multibase(record);
+        if (derivedMultibase) {
+          record.public_key_multibase = derivedMultibase;
+          try {
+            await putPublicKeys([
+              {
+                key_id: record.key_id,
+                key_type: record.key_type,
+                controller: record.controller,
+                public_key_multibase: derivedMultibase,
+                public_key_jwk: record.public_key_jwk,
+                public_key_hex: record.public_key_hex,
+                is_active: record.is_active ?? true,
+                purpose: record.purpose ?? 'assertion',
+                organization_id: record.organization_id ?? null,
+              } as CachedPublicKey,
+            ]);
+          } catch (persistError) {
+            console.warn('⚠️ Failed to persist derived multibase key, continuing with in-memory value', persistError);
+          }
+        }
+      }
+
       // Return the key in the format expected by the verifier
       return {
         id: record.key_id,
@@ -107,5 +131,23 @@ export class PublicKeyService {
       console.error('💥 Error retrieving public key from cache:', e);
       return null;
     }
+  }
+
+  private deriveEd25519Multibase(record: any): string | undefined {
+    try {
+      if (record?.public_key_jwk?.kty === 'OKP' && record.public_key_jwk.crv === 'Ed25519' && record.public_key_jwk.x) {
+        const raw = base64UrlDecode(record.public_key_jwk.x);
+        return ed25519RawToMultibase(raw);
+      }
+
+      if (typeof record?.public_key_hex === 'string') {
+        const bytes = hexToBytes(record.public_key_hex);
+        const raw = spkiToRawEd25519(bytes);
+        return ed25519RawToMultibase(raw);
+      }
+    } catch (error: any) {
+      console.warn('⚠️ Unable to derive Ed25519 multibase key from cached material:', error?.message ?? error);
+    }
+    return undefined;
   }
 }

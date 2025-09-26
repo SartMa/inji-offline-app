@@ -326,6 +326,7 @@
 import * as jsigs from 'jsonld-signatures';
 import { Ed25519Signature2020 } from '@digitalbazaar/ed25519-signature-2020';
 import { Ed25519VerificationKey2020 } from '@digitalbazaar/ed25519-verification-key-2020';
+import * as ed25519 from '@noble/ed25519';
 
 // Import SDK-internal utilities and exceptions
 import { UnknownException } from '../../exception';
@@ -333,6 +334,7 @@ import { CredentialVerifierConstants } from '../../constants/CredentialVerifierC
 import { PublicKeyService } from '../../publicKey/PublicKeyService'; // This service should live inside the SDK
 import { OfflineDocumentLoader } from '../../utils/OfflineDocumentLoader'; // Your smart loader, also inside the SDK
 import { getContext } from '../../cache/utils/CacheHelper';
+import { base64UrlDecode, hexToBytes, spkiToRawEd25519, decodeDidKeyMultibaseEd25519 } from '../../publicKey/Utils';
 
 /**
  * LDP (Linked Data Proof) Verifier
@@ -462,86 +464,175 @@ export class LdpVerifier {
    */
   private async verifyWithSuite(vcObject: any, proof: any, Suite: any, VerificationKey: any): Promise<boolean> {
     try {
-      // STEP A: Resolve the public key using our SDK's internal service.
-      // This will use the OfflineDocumentLoader's logic (cache-first).
       const verificationMethodUrl = proof.verificationMethod;
       const publicKeyData = await this.publicKeyService.getPublicKey(verificationMethodUrl);
       if (!publicKeyData) {
         this.logger.error(`❌ Could not resolve public key for: ${verificationMethodUrl}`);
-        // If we're offline, surface a specific error so the caller can show a better message
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
           throw new Error(CredentialVerifierConstants.ERROR_CODE_OFFLINE_DEPENDENCIES_MISSING);
         }
         return false;
       }
 
-      // STEP B: Construct the KeyPair object that the 'jsigs' library understands.
-      const keyPair = await VerificationKey.from(publicKeyData);
+      this.logger.debug?.('🔑 Resolved public key data:', publicKeyData);
 
-      // STEP C: Create an instance of the signature suite (e.g., Ed25519Signature2020).
-      const suite = new Suite({ key: keyPair });
-
-      // STEP D: Construct a minimal DID Document for offline "purpose" checking.
-      // This tells the library that this key is authorized for its stated purpose (e.g., "assertionMethod").
-      const controllerDoc = {
-        '@context': 'https://w3id.org/security/v2',
-        id: publicKeyData.controller,
-        [proof.proofPurpose]: [verificationMethodUrl] // Dynamically use the purpose from the proof
+      const controllerId = publicKeyData.controller ?? verificationMethodUrl.split('#')[0];
+      const verificationMethodDoc: any = {
+        id: verificationMethodUrl,
+        type: publicKeyData.type ?? proof.type.replace('Signature', 'VerificationKey'),
+        controller: controllerId,
       };
 
-      // STEP E: Call the `jsigs.verify()` engine. This is where all the magic happens.
-      // The library will internally handle canonicalization and call our Document Loader as needed.
+      if (publicKeyData.publicKeyMultibase) {
+        verificationMethodDoc.publicKeyMultibase = publicKeyData.publicKeyMultibase;
+      }
+      if (publicKeyData.publicKeyJwk) {
+        verificationMethodDoc.publicKeyJwk = publicKeyData.publicKeyJwk;
+      }
+      if (publicKeyData.publicKeyHex) {
+        verificationMethodDoc.publicKeyHex = publicKeyData.publicKeyHex;
+      }
+
+      const keyPair = await VerificationKey.from(verificationMethodDoc);
+
+      const suiteOptions: any = {
+        key: keyPair,
+        verificationMethod: verificationMethodDoc.id,
+      };
+
+      const cryptoSubtleAvailable = typeof globalThis.crypto?.subtle?.digest === 'function';
+      if (!cryptoSubtleAvailable) {
+        const fallbackVerifier = this.buildEd25519FallbackVerifier(publicKeyData, verificationMethodDoc.id);
+        if (fallbackVerifier) {
+          suiteOptions.verifier = fallbackVerifier;
+          this.logger.warn('[Ed25519] Using noble-ed25519 fallback verifier because WebCrypto subtle API is unavailable.');
+        } else {
+          this.logger.warn('[Ed25519] crypto.subtle missing and no fallback verifier could be constructed. Verification may fail.');
+        }
+      }
+
+      const suite = new Suite(suiteOptions);
+
+      const controllerContexts = ['https://www.w3.org/ns/did/v1', 'https://w3id.org/security/v2'];
+      if (proof.type && proof.type.toLowerCase().includes('ed25519') && !controllerContexts.includes('https://w3id.org/security/suites/ed25519-2020/v1')) {
+        controllerContexts.push('https://w3id.org/security/suites/ed25519-2020/v1');
+      }
+      const controllerDoc: any = {
+        '@context': controllerContexts,
+        id: controllerId,
+        verificationMethod: [verificationMethodDoc],
+      };
+
+      const purposeTerm = proof.proofPurpose || 'assertionMethod';
+      controllerDoc[purposeTerm] = [verificationMethodDoc.id];
+
       const verificationResult = await jsigs.verify(
-        vcObject, // The full VC object (the library will handle removing the proof)
+        { ...vcObject, proof },
         {
-          suite: suite,
+          suite,
           purpose: new jsigs.purposes.AssertionProofPurpose({ controller: controllerDoc }),
-          // We provide our smart, offline-first loader to the engine.
-          documentLoader: OfflineDocumentLoader.getDocumentLoader()
+          documentLoader: OfflineDocumentLoader.getDocumentLoader(),
         }
       );
 
-      // STEP F: Return the result.
       if (verificationResult.verified) {
         this.logger.info(`✅ Signature verification successful for proof type ${proof.type}!`);
         return true;
-      } else {
-        const err = verificationResult.error as any;
-        const collectMessages = (e: any): string[] => {
-          if (!e) return [];
-          const out: string[] = [];
-          if (typeof e.message === 'string') out.push(e.message);
-          if (Array.isArray(e.errors)) {
-            for (const sub of e.errors) {
-              out.push(...collectMessages(sub));
-            }
-          }
-          if (Array.isArray(e.details)) {
-            for (const sub of e.details) {
-              out.push(...collectMessages(sub));
-            }
-          }
-          return out;
-        };
-        const messages = collectMessages(err);
-        const errMsg = messages.join(' | ');
-        // If the failure is due to offline-missing dependencies surfaced by the document loader,
-        // propagate a specific error so the higher layer can map it to a friendly message.
-        if (errMsg.includes(CredentialVerifierConstants.ERROR_CODE_OFFLINE_DEPENDENCIES_MISSING)) {
-          throw new Error(CredentialVerifierConstants.ERROR_CODE_OFFLINE_DEPENDENCIES_MISSING);
-        }
-        this.logger.error(`❌ Signature verification failed for ${proof.type}:`, verificationResult.error);
-        return false;
       }
+
+      const err = verificationResult.error as any;
+      const collectMessages = (e: any): string[] => {
+        if (!e) return [];
+        const out: string[] = [];
+        if (typeof e.message === 'string') out.push(e.message);
+        if (Array.isArray(e.errors)) {
+          for (const sub of e.errors) {
+            out.push(...collectMessages(sub));
+          }
+        }
+        if (Array.isArray(e.details)) {
+          for (const sub of e.details) {
+            out.push(...collectMessages(sub));
+          }
+        }
+        return out;
+      };
+      const messages = collectMessages(err);
+      const errMsg = messages.join(' | ');
+      if (errMsg.includes(CredentialVerifierConstants.ERROR_CODE_OFFLINE_DEPENDENCIES_MISSING)) {
+        throw new Error(CredentialVerifierConstants.ERROR_CODE_OFFLINE_DEPENDENCIES_MISSING);
+      }
+      this.logger.error(`❌ Signature verification failed for ${proof.type}:`, verificationResult.error);
+      if (errMsg) {
+        this.logger.error(`❌ ${proof.type} failure details: ${errMsg}`);
+      }
+      const verificationResults = (verificationResult as any)?.results;
+      if (Array.isArray(verificationResults) && verificationResults.length) {
+        this.logger.error('❌ Verification result breakdown:', JSON.stringify(verificationResults, null, 2));
+      }
+      return false;
 
     } catch (error: any) {
       this.logger.error(`💥 A critical error occurred during ${proof.type} verification:`, error.message);
-      // Bubble up offline missing dependencies for higher-level handling
       if (error?.message === CredentialVerifierConstants.ERROR_CODE_OFFLINE_DEPENDENCIES_MISSING) {
         throw error;
       }
       return false;
     }
+  }
+
+  private buildEd25519FallbackVerifier(publicKeyData: any, verificationMethodId: string): { id: string; verify: ({ data, signature }: { data: Uint8Array; signature: Uint8Array }) => Promise<boolean> } | null {
+    try {
+      const rawKey = this.extractEd25519RawKey(publicKeyData);
+      if (!rawKey) {
+        this.logger.warn('[Ed25519 fallback] Unable to derive raw public key for fallback verifier.');
+        return null;
+      }
+
+      const immutableKey = new Uint8Array(rawKey);
+      return {
+        id: verificationMethodId,
+        verify: async ({ data, signature }: { data: Uint8Array; signature: Uint8Array }) => {
+          try {
+            const verified = await ed25519.verify(signature, data, immutableKey);
+            if (!verified) {
+              this.logger.error('❌ [Ed25519 fallback] noble-ed25519 reported signature mismatch.');
+            }
+            return verified;
+          } catch (error: any) {
+            this.logger.error('💥 [Ed25519 fallback] Verification threw an error:', error?.message ?? error);
+            return false;
+          }
+        }
+      };
+    } catch (error: any) {
+      this.logger.warn('[Ed25519 fallback] Failed constructing fallback verifier:', error?.message ?? error);
+      return null;
+    }
+  }
+
+  private extractEd25519RawKey(publicKeyData: any): Uint8Array | null {
+    try {
+      if (publicKeyData?.publicKeyMultibase) {
+        return decodeDidKeyMultibaseEd25519(publicKeyData.publicKeyMultibase);
+      }
+
+      const jwkX = publicKeyData?.publicKeyJwk?.x;
+      if (jwkX) {
+        return base64UrlDecode(jwkX);
+      }
+
+      if (typeof publicKeyData?.publicKeyHex === 'string') {
+        const spkiBytes = hexToBytes(publicKeyData.publicKeyHex);
+        return spkiToRawEd25519(spkiBytes);
+      }
+    } catch (error: any) {
+      this.logger.warn('[Ed25519 fallback] Error extracting raw key material:', error?.message ?? error);
+      return null;
+    }
+
+    this.logger.warn('[Ed25519 fallback] No supported key material found on public key data.');
+    return null;
   }
 }
 
