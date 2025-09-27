@@ -1,7 +1,7 @@
 import { CredentialFormat } from '../constants/CredentialFormat';
-import { VerifiableCredential } from './verifiableCredential';
 import { LdpVerifiableCredential } from './types/LdpVerifiableCredential';
 import { MsoMdocVerifiableCredential } from './types/msomdoc/MsoMdocVerifiableCredential';
+import { VerifiableCredential } from './verifiableCredential';
 
 class CredentialVerifierFactory {
     get(credentialFormat: CredentialFormat): VerifiableCredential {

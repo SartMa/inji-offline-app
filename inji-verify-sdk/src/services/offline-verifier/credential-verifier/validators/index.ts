@@ -1,16 +1,16 @@
 // === VALIDATORS ===
+export { ValidationStatus } from '../../data/data';
 export { LdpValidator } from './LdpValidator';
 export { MsoMdocValidator, getCborMapValue, isCborMap } from './MsoMdocValidator';
-export { ValidationStatus } from '../../data/data';
 
 // === UTILITIES ===
-export { ValidationHelper } from '../../utils/ValidationHelper';
 export { DateUtils } from '../../utils/DateUtils';
-export { Util, DATA_MODEL, VerificationStatus } from '../../utils/Util';
+export { DATA_MODEL, Util, VerificationStatus } from '../../utils/Util';
 export type { VerificationResult } from '../../utils/Util';
+export { ValidationHelper } from '../../utils/ValidationHelper';
 
 // === EXCEPTIONS ===
-export { ValidationException, UnknownException, BaseUncheckedException } from '../../exception';
+export { BaseUncheckedException, UnknownException, ValidationException } from '../../exception';
 
 // === CONSTANTS ===
 export { CredentialValidatorConstants } from '../../constants/CredentialValidatorConstants';

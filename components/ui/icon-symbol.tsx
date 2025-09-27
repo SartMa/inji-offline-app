@@ -1,7 +1,7 @@
 // Fallback for using MaterialIcons on Android and web.
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
+import { SymbolViewProps, SymbolWeight } from 'expo-symbols';
 import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
@@ -18,6 +18,13 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  // Tab navigation icons
+  'wallet.pass.fill': 'credit-card',
+  'checkmark.shield.fill': 'verified-user',
+  'qrcode.viewfinder': 'qr-code-scanner',
+  // Legacy mappings for current icons
+  'tray.full.fill': 'folder-open',
+  'qrcode': 'qr-code',
 } as IconMapping;
 
 /**

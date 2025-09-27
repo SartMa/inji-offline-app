@@ -1,11 +1,11 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
 import {
+  CacheBundle,
   OrgResolver,
   SDKCacheManager,
-  CacheBundle,
 } from '@mosip/react-inji-verify-sdk';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Alert } from 'react-native';
 
 const STORAGE_KEY = '@offline-cache:credentials';
 
@@ -21,6 +21,12 @@ export type StoredCredential = {
 type OfflineCacheContextValue = {
   entries: StoredCredential[];
   loading: boolean;
+  sdkSnapshot: {
+    contexts: Awaited<ReturnType<typeof SDKCacheManager.getCacheSnapshot>>['contexts'];
+    publicKeys: Awaited<ReturnType<typeof SDKCacheManager.getCacheSnapshot>>['publicKeys'];
+    revokedVCs: Awaited<ReturnType<typeof SDKCacheManager.getCacheSnapshot>>['revokedVCs'];
+  };
+  refreshSdkSnapshot: () => Promise<void>;
   addCredentialFromJson: (rawJson: string) => Promise<StoredCredential>;
   removeCredential: (id: string) => Promise<void>;
   clearAll: () => Promise<void>;
@@ -59,19 +65,45 @@ async function hydrateCredentials(): Promise<StoredCredential[]> {
 export const OfflineCacheProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [entries, setEntries] = useState<StoredCredential[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sdkSnapshot, setSdkSnapshot] = useState({ contexts: [], publicKeys: [], revokedVCs: [] } as OfflineCacheContextValue['sdkSnapshot']);
+
+  const refreshSdkSnapshot = useCallback(async () => {
+    try {
+      const snapshot = await SDKCacheManager.getCacheSnapshot();
+      setSdkSnapshot(snapshot);
+    } catch (error) {
+      console.warn('[OfflineCache] Failed to read SDK cache snapshot', error);
+      setSdkSnapshot({ contexts: [], publicKeys: [], revokedVCs: [] });
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
     (async () => {
       const hydrated = await hydrateCredentials();
+      const snapshot = await SDKCacheManager.getCacheSnapshot();
       if (isMounted) {
         setEntries(hydrated);
+        setSdkSnapshot(snapshot);
         setLoading(false);
       }
     })();
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  const rebuildSdkCaches = useCallback(async (currentEntries: StoredCredential[]) => {
+    await SDKCacheManager.clearAllCaches();
+    for (const entry of currentEntries) {
+      try {
+        const parsed = JSON.parse(entry.raw);
+        const bundle: CacheBundle = await OrgResolver.buildBundleFromVC(parsed, true);
+        await SDKCacheManager.primeFromServer(bundle);
+      } catch (error) {
+        console.warn('[OfflineCache] Failed to rebuild cache for entry', entry.id, error);
+      }
+    }
   }, []);
 
   const addCredentialFromJson = useCallback(async (rawJson: string) => {
@@ -101,7 +133,8 @@ export const OfflineCacheProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       const updated = [newEntry, ...entries];
       setEntries(updated);
-      await persistCredentials(updated);
+  await persistCredentials(updated);
+  await refreshSdkSnapshot();
 
       Alert.alert('Credential cached for offline verification');
       return newEntry;
@@ -110,26 +143,42 @@ export const OfflineCacheProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const message = error?.message ?? 'Unknown error adding credential';
       throw new Error(message);
     }
-  }, [entries]);
+  }, [entries, refreshSdkSnapshot]);
 
   const removeCredential = useCallback(async (id: string) => {
     const updated = entries.filter(entry => entry.id !== id);
+    setLoading(true);
     setEntries(updated);
-    await persistCredentials(updated);
-  }, [entries]);
+    try {
+      await persistCredentials(updated);
+      await rebuildSdkCaches(updated);
+      await refreshSdkSnapshot();
+    } finally {
+      setLoading(false);
+    }
+  }, [entries, rebuildSdkCaches, refreshSdkSnapshot]);
 
   const clearAll = useCallback(async () => {
+    setLoading(true);
     setEntries([]);
-    await persistCredentials([]);
-  }, []);
+    try {
+      await persistCredentials([]);
+      await SDKCacheManager.clearAllCaches();
+      await refreshSdkSnapshot();
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshSdkSnapshot]);
 
   const value = useMemo<OfflineCacheContextValue>(() => ({
     entries,
     loading,
+    sdkSnapshot,
+    refreshSdkSnapshot,
     addCredentialFromJson,
     removeCredential,
     clearAll,
-  }), [entries, loading, addCredentialFromJson, removeCredential, clearAll]);
+  }), [entries, loading, sdkSnapshot, refreshSdkSnapshot, addCredentialFromJson, removeCredential, clearAll]);
 
   return (
     <OfflineCacheContext.Provider value={value}>

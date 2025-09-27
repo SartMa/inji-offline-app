@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "inji_final",
-    "slug": "inji_final",
+    "name": "INJI Verifier",
+    "slug": "inji-offline-verifier",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

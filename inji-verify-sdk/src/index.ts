@@ -1,19 +1,27 @@
-import '../polyfills/crypto';
+import './polyfills/ensureCrypto';
 
 export { default as OpenID4VPVerification } from '././components/openid4vp-verification/OpenID4VPVerification';
 export { default as QRCodeVerification } from '././components/qrcode-verification/QRCodeVerification';
 
 // Export offline verification services
-export { CredentialsVerifier } from './services/offline-verifier/CredentialsVerifier';
 export { CredentialFormat } from './services/offline-verifier/constants/CredentialFormat';
+export { CredentialsVerifier } from './services/offline-verifier/CredentialsVerifier';
 export { VerificationResult } from './services/offline-verifier/data/data';
 export { PresentationVerifier } from './services/offline-verifier/PresentationVerifier';
 export { PublicKeyService } from './services/offline-verifier/publicKey/PublicKeyService';
 // ...existing code...
 export { SDKCacheManager } from './services/offline-verifier/cache/SDKCacheManager';
+export {
+    isVCRevoked,
+    putRevokedVCs,
+    replacePublicKeysForOrganization,
+    replaceRevokedVCsForOrganization
+} from './services/offline-verifier/cache/utils/CacheHelper';
+export type {
+    CachedContextInfo,
+    CachedPublicKeyInfo, CachedRevokedVC
+} from './services/offline-verifier/cache/utils/CacheHelper';
 export { OrgResolver } from './services/offline-verifier/cache/utils/OrgResolver';
 export type { CacheBundle } from './services/offline-verifier/cache/utils/OrgResolver';
-export { isVCRevoked, putRevokedVCs, replaceRevokedVCsForOrganization, replacePublicKeysForOrganization } from './services/offline-verifier/cache/utils/CacheHelper';
-export type { CachedRevokedVC } from './services/offline-verifier/cache/utils/CacheHelper';
 export { decodeQrData } from './utils/dataProcessor';
 // ...existing code...

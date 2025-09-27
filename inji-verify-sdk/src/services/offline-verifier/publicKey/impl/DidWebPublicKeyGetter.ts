@@ -1,7 +1,6 @@
 import type { PublicKeyGetter } from '../PublicKeyGetter';
 import type { PublicKeyData } from '../Types';
-import { fetchPublicDocument } from '../Utils';
-import { getPublicKeyFromPem, getPublicKeyFromJwk, getPublicKeyFromHex, getPublicKeyFromMultibaseEd25519 } from '../Utils';
+import { fetchPublicDocument, getPublicKeyFromHex, getPublicKeyFromJwk, getPublicKeyFromMultibaseEd25519, getPublicKeyFromPem } from '../Utils';
 
 const didWebRegex = /^did:web:([a-zA-Z0-9.-]+)(?::(.+))?$/;
 

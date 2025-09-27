@@ -16,9 +16,9 @@ export default function RootLayout() {
     <OfflineCacheProvider>
       <VerificationHistoryProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="verify" options={{ title: 'Verify Credential' }} />
+          <Stack initialRouteName="(tabs)">
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

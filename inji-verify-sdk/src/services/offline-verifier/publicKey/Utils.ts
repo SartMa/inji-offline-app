@@ -1,7 +1,7 @@
+import { secp256k1 } from '@noble/curves/secp256k1';
+import { base58btc } from 'multiformats/bases/base58';
 import type { PublicKeyData } from './Types';
 import { PublicKeyNotFoundError, PublicKeyTypeNotSupportedError } from './Types';
-import { base58btc } from 'multiformats/bases/base58';
-import { secp256k1 } from '@noble/curves/secp256k1';
 
 // Constants analogous to Kotlin CredentialVerifierConstants
 export const RSA_KEY_TYPE = 'RsaVerificationKey2018';

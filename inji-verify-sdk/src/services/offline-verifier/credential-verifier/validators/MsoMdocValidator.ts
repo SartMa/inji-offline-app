@@ -1,6 +1,6 @@
 import { decode } from 'cbor-x';
 import { CredentialValidatorConstants } from '../../constants/CredentialValidatorConstants';
-import { ValidationException, UnknownException } from '../../exception';
+import { UnknownException, ValidationException } from '../../exception';
 import { DateUtils } from '../../utils/DateUtils';
 
 /**

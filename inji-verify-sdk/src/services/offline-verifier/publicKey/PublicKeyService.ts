@@ -1,6 +1,7 @@
-import { PublicKeyGetterFactory } from './PublicKeyGetterFactory';
 import { CachedPublicKey, getKeyById, putPublicKeys } from '../cache/utils/CacheHelper';
-import { bytesToHex, spkiToRawEd25519, ed25519RawToMultibase, parsePemToDer, base64UrlDecode, hexToBytes } from './Utils';
+import { canPerformNetworkRequest, isExplicitlyOffline } from '../utils/NetworkUtils';
+import { PublicKeyGetterFactory } from './PublicKeyGetterFactory';
+import { base64UrlDecode, bytesToHex, ed25519RawToMultibase, hexToBytes, parsePemToDer, spkiToRawEd25519 } from './Utils';
 
 export class PublicKeyService {
   /**
@@ -15,8 +16,8 @@ export class PublicKeyService {
 
       if (!record || isIncomplete(record)) {
         console.warn(`⚠️ Public key not found in cache: ${verificationMethod}`);
-        // Online fallback: resolve and cache
-        if (typeof navigator !== 'undefined' && navigator.onLine) {
+        // Online fallback: resolve and cache when a network request is possible
+        if (canPerformNetworkRequest()) {
           try {
             const pk = await new PublicKeyGetterFactory().get(verificationMethod);
             const controller = verificationMethod.split('#')[0];
@@ -81,6 +82,9 @@ export class PublicKeyService {
             return null;
           }
         } else {
+          if (isExplicitlyOffline()) {
+            console.warn('⚠️ Skipping online key resolution because runtime reports offline mode.');
+          }
           return null;
         }
       }

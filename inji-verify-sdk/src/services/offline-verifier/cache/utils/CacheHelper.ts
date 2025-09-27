@@ -22,7 +22,7 @@ export type CachedRevokedVC = {
   organization_id: string;        // Organization ID (required for proper scoping)
 };
 
-type ContextRecord = {
+export type ContextRecord = {
   url: string;
   document: any;
   cachedAt: number;
@@ -30,7 +30,7 @@ type ContextRecord = {
   organization_id?: string | null;
 };
 
-type PublicKeyRecord = {
+export type PublicKeyRecord = {
   key_id: string;
   key_type: string;
   public_key_multibase?: string;
@@ -42,7 +42,7 @@ type PublicKeyRecord = {
   organization_id?: string | null;
 };
 
-type RevokedVCRecord = CachedRevokedVC;
+export type RevokedVCRecord = CachedRevokedVC;
 
 type ContextStoreState = Record<string, ContextRecord>;
 type PublicKeyStoreState = Record<string, PublicKeyRecord>;
@@ -74,6 +74,22 @@ async function loadRevokedVCs(): Promise<RevokedVCStoreState> {
 
 async function saveRevokedVCs(store: RevokedVCStoreState): Promise<void> {
   await writeJson(REVOKED_VC_STORAGE_KEY, store);
+}
+
+export async function clearContextStore(): Promise<void> {
+  await saveContexts({});
+}
+
+export async function clearPublicKeyStore(): Promise<void> {
+  await savePublicKeys({});
+}
+
+export async function clearRevokedVCStore(): Promise<void> {
+  await saveRevokedVCs({});
+}
+
+export async function clearAllCacheStores(): Promise<void> {
+  await Promise.all([clearContextStore(), clearPublicKeyStore(), clearRevokedVCStore()]);
 }
 
 export async function putContexts(contexts: { url: string; document: any; organization_id?: string | null }[]): Promise<void> {
@@ -154,6 +170,41 @@ export async function getAnyKeyForDid(did: string): Promise<any | null> {
   const store = await loadPublicKeys();
   const values = Object.values(store);
   return values.find(record => record.controller === did) ?? null;
+}
+
+export type CachedContextInfo = Pick<ContextRecord, 'url' | 'cachedAt' | 'source' | 'organization_id'>;
+export type CachedPublicKeyInfo = Pick<PublicKeyRecord, 'key_id' | 'key_type' | 'controller' | 'organization_id'> & {
+  hasMultibase: boolean;
+  hasHex: boolean;
+  hasJwk: boolean;
+};
+
+export async function listCachedContexts(): Promise<CachedContextInfo[]> {
+  const store = await loadContexts();
+  return Object.values(store).map(({ url, cachedAt, source, organization_id }) => ({
+    url,
+    cachedAt,
+    source,
+    organization_id: organization_id ?? null,
+  }));
+}
+
+export async function listCachedPublicKeys(): Promise<CachedPublicKeyInfo[]> {
+  const store = await loadPublicKeys();
+  return Object.values(store).map(({ key_id, key_type, controller, organization_id, public_key_multibase, public_key_hex, public_key_jwk }) => ({
+    key_id,
+    key_type,
+    controller,
+    organization_id: organization_id ?? null,
+    hasMultibase: !!public_key_multibase,
+    hasHex: !!public_key_hex,
+    hasJwk: !!public_key_jwk,
+  }));
+}
+
+export async function listCachedRevokedVCs(): Promise<RevokedVCRecord[]> {
+  const store = await loadRevokedVCs();
+  return Object.values(store);
 }
 
 export async function putRevokedVCs(revokedVCs: CachedRevokedVC[]): Promise<void> {

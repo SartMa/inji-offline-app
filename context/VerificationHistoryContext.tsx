@@ -1,10 +1,12 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VerificationResult } from '@mosip/react-inji-verify-sdk';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = '@offline-cache:verification-history';
 
-type VerificationSource = 'scan' | 'upload';
+type VerificationSource = 'scan' | 'image';
+
+type PersistedVerification = Omit<StoredVerification, 'source'> & { source: 'scan' | 'upload' | 'image' };
 
 type StoredVerification = {
   id: string;
@@ -44,8 +46,15 @@ async function hydrateHistory(): Promise<StoredVerification[]> {
   try {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
     if (!stored) return [];
-    const parsed = JSON.parse(stored) as StoredVerification[];
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = JSON.parse(stored) as PersistedVerification[];
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.map((entry) => ({
+      ...entry,
+      source: entry.source === 'scan' ? 'scan' : 'image',
+    }));
   } catch (error) {
     console.warn('[VerificationHistory] Failed to hydrate history', error);
     return [];

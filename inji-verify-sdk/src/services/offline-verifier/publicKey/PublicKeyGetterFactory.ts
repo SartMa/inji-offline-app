@@ -1,8 +1,8 @@
-import type { PublicKeyData } from './Types';
 import type { PublicKeyGetter } from './PublicKeyGetter';
-import { DidWebPublicKeyGetter } from './impl/DidWebPublicKeyGetter';
-import { DidKeyPublicKeyGetter } from './impl/DidKeyPublicKeyGetter';
+import type { PublicKeyData } from './Types';
 import { DidJwkPublicKeyGetter } from './impl/DidJwkPublicKeyGetter';
+import { DidKeyPublicKeyGetter } from './impl/DidKeyPublicKeyGetter';
+import { DidWebPublicKeyGetter } from './impl/DidWebPublicKeyGetter';
 import { HttpsPublicKeyGetter } from './impl/HttpsPublicKeyGetter';
 
 export class PublicKeyGetterFactory {

@@ -1,9 +1,9 @@
+import { isVCRevoked } from './cache/utils/CacheHelper';
 import { CredentialFormat } from './constants/CredentialFormat';
 import { CredentialValidatorConstants } from './constants/CredentialValidatorConstants';
 import { CredentialVerifierConstants } from './constants/CredentialVerifierConstants';
 import { CredentialVerifierFactory } from './credential-verifier/credentialVerifierFactory';
 import { VerificationResult } from './data/data';
-import { isVCRevoked } from './cache/utils/CacheHelper';
 
 class CredentialsVerifier {
     private logger: Console;

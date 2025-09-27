@@ -1,11 +1,11 @@
 import { Decoder, Encoder } from 'cbor-x';
-import { pki as forgePki, asn1 } from 'node-forge';
 import { verify } from 'cose-js';
+import { asn1, pki as forgePki } from 'node-forge';
 
 
 // Import our MSO mDoc types
-import { MsoMdocVerifiableCredential } from '../types/msomdoc/MsoMdocVerifiableCredential';
 import { extractFieldValue, extractMso } from '../types/msomdoc/MsoMdocCredentialData';
+import { MsoMdocVerifiableCredential } from '../types/msomdoc/MsoMdocVerifiableCredential';
 
 // Import exceptions
 import { UnknownException } from '../../exception';

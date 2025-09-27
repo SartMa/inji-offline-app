@@ -1,7 +1,7 @@
-import { VerifiableCredential } from '../verifiableCredential';
-import { LdpValidator } from '../validators/LdpValidator';
-import { LdpVerifier } from '../verifiers/LdpVerifier';
 import { ValidationStatus } from '../../data/data';
+import { LdpValidator } from '../validators/LdpValidator';
+import { VerifiableCredential } from '../verifiableCredential';
+import { LdpVerifier } from '../verifiers/LdpVerifier';
 
 class LdpVerifiableCredential extends VerifiableCredential {
     validate(credential: string): ValidationStatus {

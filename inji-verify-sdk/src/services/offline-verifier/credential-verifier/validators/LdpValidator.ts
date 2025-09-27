@@ -1,9 +1,9 @@
 import { CredentialValidatorConstants } from '../../constants/CredentialValidatorConstants';
-import { ValidationHelper } from '../../utils/ValidationHelper';
-import { DateUtils } from '../../utils/DateUtils';
-import { Util, DATA_MODEL } from '../../utils/Util';
-import { ValidationException } from '../../exception/ValidationException';
 import { ValidationStatus } from '../../data/data';
+import { ValidationException } from '../../exception/ValidationException';
+import { DateUtils } from '../../utils/DateUtils';
+import { DATA_MODEL, Util } from '../../utils/Util';
+import { ValidationHelper } from '../../utils/ValidationHelper';
 
 /**
  * Validation Status class to match Kotlin ValidationStatus

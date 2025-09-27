@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test-warnings": "node ./scripts/test-warnings.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -19,7 +20,7 @@
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
     "expo": "~54.0.10",
-    "expo-camera": "~15.0.11",
+    "expo-camera": "~17.0.8",
     "expo-constants": "~18.0.9",
     "expo-crypto": "~15.0.7",
     "expo-document-picker": "~14.0.7",

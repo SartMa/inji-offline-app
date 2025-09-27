@@ -3,10 +3,27 @@
  * - Used by Worker app to seed the SDK-managed IndexedDB cache from a CacheBundle.
  * - Also supports deriving cache directly from a VC if needed (online one-time).
  */
-import { CachedPublicKey, CachedRevokedVC, putContexts, putPublicKeys, putRevokedVCs, replaceRevokedVCsForOrganization, replacePublicKeysForOrganization, getContext, replaceContextsForOrganization } from './utils/CacheHelper';
-import type { CacheBundle } from './utils/OrgResolver';
-import { PublicKeyGetterFactory } from '../publicKey/PublicKeyGetterFactory';
 import { base58btc } from 'multiformats/bases/base58';
+import { PublicKeyGetterFactory } from '../publicKey/PublicKeyGetterFactory';
+import { canPerformNetworkRequest } from '../utils/NetworkUtils';
+import {
+  CachedContextInfo,
+  CachedPublicKey,
+  CachedPublicKeyInfo,
+  CachedRevokedVC,
+  clearAllCacheStores,
+  getContext,
+  listCachedContexts,
+  listCachedPublicKeys,
+  listCachedRevokedVCs,
+  putContexts,
+  putPublicKeys,
+  putRevokedVCs,
+  replaceContextsForOrganization,
+  replacePublicKeysForOrganization,
+  replaceRevokedVCsForOrganization,
+} from './utils/CacheHelper';
+import type { CacheBundle } from './utils/OrgResolver';
 
 function unique<T>(arr: T[]) { return Array.from(new Set(arr)); }
 
@@ -47,7 +64,7 @@ export class SDKCacheManager {
     // 2) contexts: prefer full docs
     if (bundle.contexts?.length) {
       await putContexts(bundle.contexts);
-    } else if (bundle.contextUrls?.length && typeof navigator !== 'undefined' && navigator.onLine) {
+    } else if (bundle.contextUrls?.length && canPerformNetworkRequest()) {
       // fetch once and cache
       const docs: Array<{ url: string; document: any }> = [];
       for (const url of unique(bundle.contextUrls)) {
@@ -70,8 +87,8 @@ export class SDKCacheManager {
     
     // 2) contexts - REPLACE by organization (to mirror public keys & revoked VCs behavior)
     if (bundle.contexts?.length) {
-      await replaceContextsForOrganization(organizationId, bundle.contexts);
-    } else if (bundle.contextUrls?.length && typeof navigator !== 'undefined' && navigator.onLine) {
+       await replaceContextsForOrganization(organizationId, bundle.contexts);
+    } else if (bundle.contextUrls?.length && canPerformNetworkRequest()) {
       // fetch once and replace
       const docs: Array<{ url: string; document: any }> = [];
       for (const url of unique(bundle.contextUrls)) {
@@ -128,15 +145,15 @@ export class SDKCacheManager {
       organization_id: null
     }]);
 
-    if (typeof navigator !== 'undefined' && navigator.onLine && contextUrls.length) {
-      const docs: Array<{ url: string; document: any }> = [];
-      for (const url of contextUrls) {
-        const resp = await fetch(url, { headers: { Accept: 'application/ld+json, application/json' } });
-        if (!resp.ok) { console.warn('[SDKCacheManager] Context fetch failed:', url, resp.status); continue; }
-        docs.push({ url, document: await resp.json() });
-      }
-      if (docs.length) await putContexts(docs);
-    }
+    if (canPerformNetworkRequest() && contextUrls.length) {
+       const docs: Array<{ url: string; document: any }> = [];
+       for (const url of contextUrls) {
+         const resp = await fetch(url, { headers: { Accept: 'application/ld+json, application/json' } });
+         if (!resp.ok) { console.warn('[SDKCacheManager] Context fetch failed:', url, resp.status); continue; }
+         docs.push({ url, document: await resp.json() });
+       }
+       if (docs.length) await putContexts(docs);
+     }
 
     return { cachedKeyId: keyId, cachedContexts: contextUrls };
   }
@@ -145,5 +162,22 @@ export class SDKCacheManager {
   static async isContextCached(url: string): Promise<boolean> {
     // This now uses the refactored helper which uses the singleton
     return !!(await getContext(url));
+  }
+
+  static async clearAllCaches(): Promise<void> {
+    await clearAllCacheStores();
+  }
+
+  static async getCacheSnapshot(): Promise<{
+    contexts: CachedContextInfo[];
+    publicKeys: CachedPublicKeyInfo[];
+    revokedVCs: CachedRevokedVC[];
+  }> {
+    const [contexts, publicKeys, revokedVCs] = await Promise.all([
+      listCachedContexts(),
+      listCachedPublicKeys(),
+      listCachedRevokedVCs(),
+    ]);
+    return { contexts, publicKeys, revokedVCs };
   }
 }

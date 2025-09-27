@@ -1,21 +1,22 @@
-import * as jsigs from 'jsonld-signatures';
 import { Ed25519Signature2020 } from '@digitalbazaar/ed25519-signature-2020';
 import { Ed25519VerificationKey2020 } from '@digitalbazaar/ed25519-verification-key-2020';
+import * as jsigs from 'jsonld-signatures';
 
 import { CredentialsVerifier } from './CredentialsVerifier';
 import { CredentialFormat } from './constants/CredentialFormat';
 import { CredentialValidatorConstants } from './constants/CredentialValidatorConstants';
 import { CredentialVerifierConstants } from './constants/CredentialVerifierConstants';
 import { Shared } from './constants/Shared';
-import { OfflineDocumentLoader } from './utils/OfflineDocumentLoader';
-import { PublicKeyService } from './publicKey/PublicKeyService';
 import {
   PresentationVerificationResult,
   VCResult,
+  VerificationResult,
   VerificationStatus,
   VPVerificationStatus,
-  VerificationResult,
 } from './data/data';
+import { PublicKeyService } from './publicKey/PublicKeyService';
+import { isExplicitlyOffline } from './utils/NetworkUtils';
+import { OfflineDocumentLoader } from './utils/OfflineDocumentLoader';
 
 /**
  * PresentationVerifier
@@ -119,7 +120,7 @@ export class PresentationVerifier {
     const vm = proof.verificationMethod;
     const publicKeyData = await this.publicKeyService.getPublicKey(vm);
     if (!publicKeyData) {
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      if (isExplicitlyOffline()) {
         throw new Error(CredentialVerifierConstants.ERROR_CODE_OFFLINE_DEPENDENCIES_MISSING);
       }
       return false;

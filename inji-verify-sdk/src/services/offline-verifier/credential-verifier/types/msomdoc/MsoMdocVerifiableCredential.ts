@@ -1,12 +1,12 @@
 import { Decoder } from 'cbor-x';
-import { Base64Utils } from '../../../utils/Base64Utils';
-import { ValidationException } from '../../../exception';
 import { CredentialValidatorConstants } from '../../../constants/CredentialValidatorConstants';
-import type { MsoMdocCredentialData } from './MsoMdocCredentialData';
 import { ValidationStatus } from '../../../data/data';
-import { getProperty, getElement } from './MsoMdocCredentialData';
+import { ValidationException } from '../../../exception';
+import { Base64Utils } from '../../../utils/Base64Utils';
 import { MsoMdocValidator } from '../../validators/MsoMdocValidator';
 import { VerifiableCredential } from '../../verifiableCredential';
+import type { MsoMdocCredentialData } from './MsoMdocCredentialData';
+import { getElement, getProperty } from './MsoMdocCredentialData';
 
 const cborDecoder = new Decoder();
 

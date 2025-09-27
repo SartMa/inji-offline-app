@@ -1,9 +1,9 @@
 import { decode, decodeBinary } from "@mosip/pixelpass";
 import {
-  HEADER_DELIMITER,
-  SUPPORTED_QR_HEADERS,
-  ZIP_HEADER,
-  OvpQrHeader,
+    HEADER_DELIMITER,
+    OvpQrHeader,
+    SUPPORTED_QR_HEADERS,
+    ZIP_HEADER,
 } from "./constants";
 
 const toUint8Array = (input: any): Uint8Array => {
