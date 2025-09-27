@@ -26,6 +26,13 @@ Everything runs inside a single Expo SDK 54 app backed by a workspaces-style loc
 - **Verification History** – Persist the last 100 results with metadata (status, message, timestamp, source).
 - **Expo Router UI** – Tabbed navigation for Credentials and Verify screens, modern theming, and haptic-aware tabs.
 
+## 📷 Camera & barcode tech choices
+
+- **expo-camera** powers live scanning because it remains fully supported in Expo SDK 54 and provides the low-level camera frames we need.
+- **expo-barcode-scanner** was deprecated starting with SDK 51 (https://github.com/expo/expo/issues/27015), so it is deliberately excluded to avoid shipping unsupported APIs.
+- **ZXing WASM** (and similar web assembly scanners) require the legacy JSC runtime. This project runs on Hermes for its speed, modern language support, and memory efficiency, which makes those WASM scanners incompatible.
+- Given the above, this proof of concept focuses on real-time scanning only. Image upload is intentionally omitted until a Hermes-compatible alternative becomes available.
+
 ## 🧱 Project Structure
 
 ```
